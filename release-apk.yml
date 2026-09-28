@@ -1,0 +1,49 @@
+# Релизная сборка: собирает APK и подписывает его вашим keystore из секретов GitHub.
+# Нужные secrets (Settings -> Secrets and variables -> Actions):
+#   KEYSTORE_B64  — base64 содержимого release.keystore
+#                 (Linux/macOS:  base64 -w0 release.keystore)
+#   KS_PASS       — пароль keystore
+#   KS_ALIAS      — alias ключа (например polinagram)
+#   KEY_PASS      — пароль ключа
+# Запуск: вкладка Actions -> "Release PolinaGram APK" -> Run workflow.
+# ВАЖНО: подписанный APK отправляйте на GitHub Release / Play Market,
+# не публикуйте keystore в репозитории.
+name: Release PolinaGram APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release APK with Buildozer
+        uses: ArtemSomov/buildozer-action@v1
+        id: buildozer
+        with:
+          workdir: mobile
+          buildozer_version: stable
+          command: buildozer -v android release
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > release.keystore
+
+      - name: Sign APK
+        run: |
+          APK=$(ls mobile/bin/*.apk | head -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | head -1)
+          "$APKSIGNER" sign \
+            --ks release.keystore \
+            --ks-pass "pass:${{ secrets.KS_PASS }}" \
+            --ks-key-alias "${{ secrets.KS_ALIAS }}" \
+            --key-pass "pass:${{ secrets.KEY_PASS }}" \
+            --out PolinaGram-release.apk "$APK"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolinaGram-release-signed
+          path: PolinaGram-release.apk
+          if-no-files-found: error

@@ -1,0 +1,29 @@
+# Сборка APK в облаке: закиньте проект на GitHub -> Actions -> скачайте artifact "PolinaGram-apk".
+# Первый прогон занимает 20-40 минут (Buildozer качает NDK/SDK).
+name: Build PolinaGram APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build APK with Buildozer
+        uses: ArtemSomov/buildozer-action@v1
+        id: buildozer
+        with:
+          workdir: mobile
+          buildozer_version: stable
+          command: buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolinaGram-apk
+          path: mobile/bin/*.apk
+          if-no-files-found: error
